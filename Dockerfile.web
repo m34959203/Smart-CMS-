@@ -22,8 +22,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (ignore scripts - prisma generate not needed for web)
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # ====================================
 # Builder Stage
