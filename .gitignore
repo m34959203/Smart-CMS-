@@ -1,0 +1,33 @@
+﻿node_modules
+.pnp
+.pnp.js
+coverage
+*.log
+.next
+out
+build
+dist
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production
+.env.production.local
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+prisma/migrations/**/migration.sql
+uploads/*
+!uploads/.gitkeep
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Build caches
+.next/cache
+.webpack-cache
+apps/api/.webpack-cache
+apps/web/.next/cache

@@ -1,0 +1,355 @@
+#!/usr/bin/env node
+
+/**
+ * Скрипт импорта статей с изображениями с WordPress сайта aimaqaqshamy.kz
+ */
+
+const https = require('https');
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const OLD_SITE = 'https://aimaqaqshamy.kz';
+const NEW_API = process.env.NEW_API_URL || 'https://aimak-api-w8ps.onrender.com';
+const ADMIN_EMAIL = 'admin@aimakakshamy.kz';
+const ADMIN_PASSWORD = 'admin123';
+
+let accessToken = null;
+let adminId = null;
+
+// Утилита для HTTP запросов
+function request(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const lib = urlObj.protocol === 'https:' ? https : http;
+
+    const req = lib.request(url, options, (res) => {
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          resolve({
+            status: res.statusCode,
+            headers: res.headers,
+            body: JSON.parse(data)
+          });
+        } catch (e) {
+          resolve({
+            status: res.statusCode,
+            headers: res.headers,
+            body: data
+          });
+        }
+      });
+    });
+
+    req.on('error', reject);
+
+    if (options.body) {
+      const bodyStr = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
+      req.write(bodyStr);
+    }
+
+    req.end();
+  });
+}
+
+// Скачать изображение
+function downloadImage(url) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const lib = urlObj.protocol === 'https:' ? https : http;
+
+    lib.get(url, (res) => {
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        const contentType = res.headers['content-type'] || 'image/jpeg';
+        resolve({ buffer, contentType });
+      });
+    }).on('error', reject);
+  });
+}
+
+// Загрузить изображение на новый сервер
+function uploadImage(buffer, contentType, filename) {
+  return new Promise((resolve) => {
+    const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+
+    // Формируем multipart/form-data тело
+    const header = Buffer.from(
+      `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+      `Content-Type: ${contentType}\r\n\r\n`,
+      'utf8'
+    );
+
+    const footer = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
+    const body = Buffer.concat([header, buffer, footer]);
+
+    const urlObj = new URL(`${NEW_API}/api/media/upload`);
+
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+      path: urlObj.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': body.length,
+        'Authorization': `Bearer ${accessToken}`
+      }
+    };
+
+    const lib = urlObj.protocol === 'https:' ? https : http;
+
+    const req = lib.request(options, (res) => {
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const response = JSON.parse(data);
+          if (res.statusCode === 200 || res.statusCode === 201) {
+            resolve(response.url);
+          } else {
+            resolve(null);
+          }
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', () => resolve(null));
+
+    req.write(body);
+    req.end();
+  });
+}
+
+// Логин
+async function login() {
+  console.log('🔐 Вход в систему...');
+
+  const response = await request(`${NEW_API}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD }
+  });
+
+  if (response.status === 200 || response.status === 201) {
+    accessToken = response.body.accessToken;
+    adminId = response.body.user.id;
+    console.log('✅ Вход выполнен');
+    return true;
+  } else {
+    console.error('❌ Ошибка входа:', response.body);
+    return false;
+  }
+}
+
+// Получить категорию
+async function getCategory(slug) {
+  const response = await request(`${NEW_API}/api/categories`);
+  if (response.status === 200) {
+    return response.body.find(c => c.slug === slug);
+  }
+  return null;
+}
+
+// Получить статьи из WordPress
+async function getWordPressPosts(page = 1, perPage = 10) {
+  const url = `${OLD_SITE}/wp-json/wp/v2/posts?per_page=${perPage}&page=${page}&_embed`;
+
+  try {
+    const response = await request(url);
+    const totalPages = response.headers['x-wp-totalpages'];
+
+    return {
+      posts: response.body,
+      totalPages: parseInt(totalPages) || 1
+    };
+  } catch (error) {
+    console.error('Ошибка получения статей:', error.message);
+    return { posts: [], totalPages: 0 };
+  }
+}
+
+// Очистка HTML
+function stripHtml(html) {
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .trim();
+}
+
+// Создать slug
+function createSlug(title) {
+  return title
+    .toLowerCase()
+    .replace(/[қ]/g, 'q')
+    .replace(/[ә]/g, 'a')
+    .replace(/[ғ]/g, 'g')
+    .replace(/[ұ]/g, 'u')
+    .replace(/[ү]/g, 'u')
+    .replace(/[і]/g, 'i')
+    .replace(/[ң]/g, 'n')
+    .replace(/[һ]/g, 'h')
+    .replace(/[ө]/g, 'o')
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 100);
+}
+
+// Импортировать одну статью с изображениями
+async function importArticle(wpPost, category, withImages = true) {
+  const title = stripHtml(wpPost.title.rendered);
+  let content = wpPost.content.rendered;
+  const excerpt = wpPost.excerpt ? stripHtml(wpPost.excerpt.rendered) : title.substring(0, 200);
+  const slug = createSlug(title);
+
+  let coverImageUrl = null;
+
+  if (withImages) {
+    // Получить главное изображение (featured image)
+    if (wpPost._embedded && wpPost._embedded['wp:featuredmedia'] && wpPost._embedded['wp:featuredmedia'][0]) {
+      const featuredMedia = wpPost._embedded['wp:featuredmedia'][0];
+      const imageUrl = featuredMedia.source_url;
+
+      if (imageUrl) {
+        process.stdout.write('📷 ');
+        try {
+          const { buffer, contentType } = await downloadImage(imageUrl);
+          const filename = path.basename(new URL(imageUrl).pathname);
+          coverImageUrl = await uploadImage(buffer, contentType, filename);
+        } catch (error) {
+          process.stdout.write('⚠️ ');
+        }
+      }
+    }
+
+    // Заменить изображения в контенте (опционально - можно оставить ссылки на старый сайт)
+    // Это сложнее, так как нужно находить все <img> теги, скачивать и заливать изображения
+    // Для простоты оставляем ссылки на старый сайт в контенте
+  }
+
+  const articleData = {
+    titleKz: title,
+    slugKz: slug + '-' + wpPost.id,
+    contentKz: content,
+    excerptKz: excerpt,
+    categoryId: category.id,
+    authorId: adminId,
+    status: 'PUBLISHED',
+    published: true,
+    publishedAt: wpPost.date,
+  };
+
+  // Добавить главное изображение если есть
+  if (coverImageUrl) {
+    articleData.coverImage = coverImageUrl;
+  }
+
+  try {
+    const response = await request(`${NEW_API}/api/articles`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: articleData
+    });
+
+    if (response.status === 200 || response.status === 201) {
+      return { success: true, article: response.body };
+    } else {
+      return { success: false, error: response.body };
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Главная функция
+async function main() {
+  console.log('📰 ИМПОРТ СТАТЕЙ С ИЗОБРАЖЕНИЯМИ');
+  console.log('=====================================\n');
+
+  // Параметры
+  const args = process.argv.slice(2);
+  const limit = args[0] ? parseInt(args[0]) : 10;
+  const withImages = args[1] !== '--no-images';
+
+  if (!withImages) {
+    console.log('⚠️  Импорт БЕЗ изображений (--no-images)\n');
+  }
+
+  // Вход
+  const loggedIn = await login();
+  if (!loggedIn) {
+    process.exit(1);
+  }
+
+  // Получаем категорию
+  const category = await getCategory('zhanalyqtar');
+  if (!category) {
+    console.error('❌ Категория "zhanalyqtar" не найдена');
+    process.exit(1);
+  }
+
+  console.log('✅ Категория найдена:', category.nameKz);
+  console.log(`\n📊 Импорт первых ${limit} статей...\n`);
+
+  let imported = 0;
+  let failed = 0;
+  let page = 1;
+  const perPage = 10;
+
+  while (imported < limit) {
+    const { posts, totalPages } = await getWordPressPosts(page, perPage);
+
+    if (posts.length === 0) {
+      break;
+    }
+
+    for (const post of posts) {
+      if (imported >= limit) break;
+
+      process.stdout.write(`📝 [${imported + 1}/${limit}] ${stripHtml(post.title.rendered).substring(0, 50)}... `);
+
+      const result = await importArticle(post, category, withImages);
+
+      if (result.success) {
+        console.log('✅');
+        imported++;
+      } else {
+        console.log('❌', result.error.message || 'Ошибка');
+        failed++;
+      }
+
+      // Задержка
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    page++;
+
+    if (page > totalPages) {
+      break;
+    }
+  }
+
+  console.log('\n=====================================');
+  console.log(`✅ Импортировано: ${imported}`);
+  console.log(`❌ Ошибок: ${failed}`);
+  console.log('=====================================\n');
+}
+
+main().catch(console.error);

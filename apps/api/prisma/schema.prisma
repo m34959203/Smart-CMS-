@@ -1,0 +1,461 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  EDITOR
+  ADMIN
+}
+
+enum ArticleStatus {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+model User {
+  id              String          @id @default(uuid())
+  email           String          @unique
+  password        String
+  firstName       String
+  lastName        String
+  avatarUrl       String?
+  bio             String?
+  role            Role            @default(USER)
+  isActive        Boolean         @default(true)
+  isVerified      Boolean         @default(false)
+  articles        Article[]
+  magazineIssues  MagazineIssue[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  lastLoginAt     DateTime?
+
+  @@map("users")
+}
+
+model Article {
+  id             String        @id @default(uuid())
+
+  // Казахский язык
+  slugKz         String        @unique @map("slug_kz")
+  titleKz        String        @map("title_kz")
+  subtitleKz     String?       @map("subtitle_kz")
+  excerptKz      String?       @map("excerpt_kz")
+  contentKz      String        @map("content_kz")
+
+  // Русский язык
+  slugRu         String?       @unique @map("slug_ru")
+  titleRu        String?       @map("title_ru")
+  subtitleRu     String?       @map("subtitle_ru")
+  excerptRu      String?       @map("excerpt_ru")
+  contentRu      String?       @map("content_ru")
+
+  // Медиа
+  coverImage     String?       @map("cover_image")
+  videoUrl       String?       @map("video_url")
+  featuredImageId String?      @map("featured_image_id")
+
+  // Статус и публикация
+  status         ArticleStatus @default(DRAFT)
+  published      Boolean       @default(false)
+  publishedAt    DateTime?     @map("published_at")
+  scheduledAt    DateTime?     @map("scheduled_at")
+
+  // Флаги
+  isBreaking     Boolean       @default(false) @map("is_breaking")
+  isFeatured     Boolean       @default(false) @map("is_featured")
+  isPinned       Boolean       @default(false) @map("is_pinned")
+  allowComments  Boolean       @default(true) @map("allow_comments")
+  autoPublishEnabled Boolean   @default(false) @map("auto_publish_enabled")
+  autoPublishPlatforms SocialMediaPlatform[] @default([]) @map("auto_publish_platforms")
+
+  // Метрики
+  views          Int           @default(0)
+  likes          Int           @default(0)
+  shares         Int           @default(0)
+
+  // AI
+  aiGenerated    Boolean       @default(false) @map("ai_generated")
+  aiProvider     String?       @map("ai_provider")
+
+  // Связи
+  authorId       String        @map("author_id")
+  author         User          @relation(fields: [authorId], references: [id])
+  categoryId     String        @map("category_id")
+  category       Category      @relation(fields: [categoryId], references: [id])
+  tags           Tag[]
+  publications   SocialMediaPublication[]
+
+  // Временные метки
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+
+  @@map("articles")
+  @@index([slugKz])
+  @@index([slugRu])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([status])
+  @@index([publishedAt])
+}
+
+model Category {
+  id            String    @id @default(uuid())
+  slug          String    @unique
+
+  // Двуязычность
+  nameKz        String    @map("name_kz")
+  nameRu        String    @map("name_ru")
+  descriptionKz String?   @map("description_kz")
+  descriptionRu String?   @map("description_ru")
+
+  // Иерархия
+  parentId      String?   @map("parent_id")
+  parent        Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children      Category[] @relation("CategoryHierarchy")
+
+  sortOrder     Int       @default(0) @map("sort_order")
+  isActive      Boolean   @default(true) @map("is_active")
+
+  articles      Article[]
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("categories")
+  @@index([slug])
+  @@index([parentId])
+}
+
+model Tag {
+  id         String    @id @default(uuid())
+  slug       String    @unique
+  nameKz     String    @map("name_kz")
+  nameRu     String    @map("name_ru")
+  usageCount Int       @default(0) @map("usage_count")
+  articles   Article[]
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("tags")
+  @@index([slug])
+}
+
+// Модель для медиафайлов
+model MediaFile {
+  id               String   @id @default(uuid())
+  filename         String
+  originalFilename String   @map("original_filename")
+  mimeType         String   @map("mime_type")
+  size             Int
+  width            Int?
+  height           Int?
+  url              String
+  thumbnailUrl     String?  @map("thumbnail_url")
+
+  // Двуязычные описания
+  altTextKz        String?  @map("alt_text_kz")
+  altTextRu        String?  @map("alt_text_ru")
+  captionKz        String?  @map("caption_kz")
+  captionRu        String?  @map("caption_ru")
+
+  uploadedById     String?  @map("uploaded_by_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("media_files")
+  @@index([uploadedById])
+}
+
+// Комментарии
+model Comment {
+  id          String    @id @default(uuid())
+  articleId   String    @map("article_id")
+  userId      String?   @map("user_id")
+  parentId    String?   @map("parent_id")
+  parent      Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies     Comment[] @relation("CommentReplies")
+
+  content     String
+
+  // Для гостей
+  guestName   String?   @map("guest_name")
+  guestEmail  String?   @map("guest_email")
+
+  isApproved  Boolean   @default(false) @map("is_approved")
+  isDeleted   Boolean   @default(false) @map("is_deleted")
+  likes       Int       @default(0)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("comments")
+  @@index([articleId])
+  @@index([userId])
+  @@index([parentId])
+}
+
+// Рекламные блоки
+enum AdPosition {
+  HOME_TOP          // Верх главной страницы
+  HOME_SIDEBAR      // Боковая панель главной
+  ARTICLE_TOP       // Верх страницы статьи
+  ARTICLE_SIDEBAR   // Боковая панель статьи
+  IN_CONTENT        // Внутри контента
+  FOOTER            // Подвал
+  STICKY_BOTTOM     // Прилипающий баннер внизу
+}
+
+enum AdType {
+  CUSTOM            // Собственная реклама (HTML/изображение)
+  YANDEX_DIRECT     // Яндекс.Директ
+  GOOGLE_ADSENSE    // Google AdSense
+}
+
+enum AdSize {
+  BANNER_728x90
+  LARGE_BANNER_970x90
+  RECTANGLE_300x250
+  HALF_PAGE_300x600
+  MOBILE_BANNER_320x50
+  NATIVE
+  CUSTOM            // Произвольный размер
+}
+
+model Advertisement {
+  id               String     @id @default(uuid())
+  code             String     @unique
+
+  // Название и описание
+  nameKz           String     @map("name_kz")
+  nameRu           String     @map("name_ru")
+
+  // Тип и позиция
+  type             AdType
+  position         AdPosition
+  size             AdSize
+
+  // Для собственной рекламы
+  customHtml       String?    @map("custom_html")
+  imageUrl         String?    @map("image_url")
+  clickUrl         String?    @map("click_url")
+
+  // Для внешних рекламных сетей
+  yandexBlockId    String?    @map("yandex_block_id")      // ID блока Яндекс.Директ
+  googleAdSlot     String?    @map("google_ad_slot")       // Google AdSense slot ID
+  googleAdClient   String?    @map("google_ad_client")     // Google AdSense client ID
+
+  // Настройки показа
+  isActive         Boolean    @default(true) @map("is_active")
+  priority         Int        @default(0)
+  startDate        DateTime?  @map("start_date")
+  endDate          DateTime?  @map("end_date")
+
+  // Статистика
+  totalImpressions Int        @default(0) @map("total_impressions")
+  totalClicks      Int        @default(0) @map("total_clicks")
+
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  @@map("advertisements")
+  @@index([position])
+  @@index([isActive])
+  @@index([type])
+}
+
+// AI генерации
+model AIGeneration {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  articleId     String?  @map("article_id")
+  operationType String   @map("operation_type")
+  provider      String
+  inputText     String?  @map("input_text")
+  outputText    String?  @map("output_text")
+  inputTokens   Int?     @map("input_tokens")
+  outputTokens  Int?     @map("output_tokens")
+  costUsd       Float?   @map("cost_usd")
+  durationMs    Int?     @map("duration_ms")
+  status        String   @default("success")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("ai_generations")
+  @@index([userId])
+  @@index([provider])
+}
+
+// PDF-выпуски журнала
+model MagazineIssue {
+  id             String   @id @default(uuid())
+  issueNumber    Int      @map("issue_number")           // Номер выпуска
+  publishDate    DateTime @map("publish_date")           // Дата публикации
+
+  // Двуязычные поля
+  titleKz        String   @map("title_kz")               // Название (каз)
+  titleRu        String   @map("title_ru")               // Название (рус)
+
+  // PDF файл
+  pdfFilename    String   @map("pdf_filename")           // Имя файла
+  pdfUrl         String   @map("pdf_url")                // URL PDF
+  fileSize       Int      @map("file_size")              // Размер файла в байтах
+  pagesCount     Int?     @map("pages_count")            // Количество страниц
+
+  // Обложка
+  coverImageUrl  String?  @map("cover_image_url")        // URL обложки
+
+  // Метрики
+  viewsCount     Int      @default(0) @map("views_count")       // Просмотры
+  downloadsCount Int      @default(0) @map("downloads_count")   // Скачивания
+
+  // Статус
+  isPublished    Boolean  @default(true) @map("is_published")   // Опубликован
+  isPinned       Boolean  @default(false) @map("is_pinned")     // Закреплен
+
+  // Связи
+  uploadedById   String?  @map("uploaded_by_id")
+  uploadedBy     User?    @relation(fields: [uploadedById], references: [id])
+
+  // Временные метки
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("magazine_issues")
+  @@index([publishDate])
+  @@index([isPublished])
+  @@index([uploadedById])
+}
+
+// Social Media Publishing
+enum SocialMediaPlatform {
+  TELEGRAM
+  INSTAGRAM
+  TIKTOK
+  FACEBOOK
+}
+
+enum PublicationStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// Настройки социальных сетей
+model SocialMediaConfig {
+  id        String              @id @default(uuid())
+  platform  SocialMediaPlatform @unique
+
+  // Настройки
+  enabled         Boolean             @default(false)
+  defaultLanguage String              @default("kz") @map("default_language") // 'kz' или 'ru'
+
+  // Telegram
+  botToken  String?             @map("bot_token")
+  chatId    String?             @map("chat_id")
+
+  // Instagram
+  accessToken String?           @map("access_token")
+  pageId      String?           @map("page_id")
+
+  // Instagram Webhooks
+  webhookVerifyToken  String?   @map("webhook_verify_token")
+  webhookEnabled      Boolean   @default(false) @map("webhook_enabled")
+  webhookAppSecret    String?   @map("webhook_app_secret")  // For signature verification
+
+  // TikTok
+  tiktokClientKey    String?    @map("tiktok_client_key")
+  tiktokClientSecret String?    @map("tiktok_client_secret")
+  tiktokAccessToken  String?    @map("tiktok_access_token")
+  tiktokRefreshToken String?    @map("tiktok_refresh_token")
+  tiktokOpenId       String?    @map("tiktok_open_id")
+
+  // Facebook
+  facebookAccessToken String?   @map("facebook_access_token")
+  facebookPageId      String?   @map("facebook_page_id")
+
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  @@map("social_media_configs")
+}
+
+// Логирование публикаций в соцсети
+model SocialMediaPublication {
+  id         String              @id @default(uuid())
+  articleId  String              @map("article_id")
+  article    Article             @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  platform   SocialMediaPlatform
+  status     PublicationStatus   @default(PENDING)
+  externalId String?             @map("external_id")  // ID поста в соцсети
+  error      String?                                   // Сообщение об ошибке
+
+  publishedAt DateTime           @default(now()) @map("published_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+
+  @@map("social_media_publications")
+  @@index([articleId])
+  @@index([platform])
+  @@index([status])
+}
+
+// Instagram Webhook Events
+enum InstagramWebhookEventType {
+  COMMENTS         // Comments on media
+  MENTIONS         // Mentions in comments or captions
+  STORY_INSIGHTS   // Story insights
+  LIVE_COMMENTS    // Live video comments
+  MESSAGE_REACTIONS // Message reactions
+  MESSAGES         // Direct messages
+}
+
+// System Settings
+model SystemSettings {
+  id                       String   @id @default("default")
+
+  // Image optimization
+  imageOptimizationEnabled Boolean  @default(true) @map("image_optimization_enabled")
+
+  // Other settings can be added here
+  maintenanceMode          Boolean  @default(false) @map("maintenance_mode")
+
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model InstagramWebhookEvent {
+  id              String                    @id @default(uuid())
+  eventType       InstagramWebhookEventType @map("event_type")
+
+  // Event data
+  mediaId         String?                   @map("media_id")      // ID of the media object
+  commentId       String?                   @map("comment_id")    // ID of the comment
+  userId          String?                   @map("user_id")       // Instagram user ID who triggered event
+  username        String?                                         // Instagram username
+  text            String?                                         // Comment text or message
+
+  // Raw payload for debugging
+  rawPayload      Json                      @map("raw_payload")
+
+  // Processing status
+  processed       Boolean                   @default(false)
+  processedAt     DateTime?                 @map("processed_at")
+
+  // Timestamps
+  eventTimestamp  DateTime                  @map("event_timestamp")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+
+  @@map("instagram_webhook_events")
+  @@index([eventType])
+  @@index([mediaId])
+  @@index([processed])
+  @@index([createdAt])
+}

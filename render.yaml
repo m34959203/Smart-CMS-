@@ -1,0 +1,341 @@
+# ==========================================
+# Render.com Blueprint - WITH Database Creation
+# Project: Aimak Akshamy
+# Version: 2.2.0
+# ==========================================
+
+# ==========================================
+# DATABASES
+# ==========================================
+databases:
+  - name: aimak-postgres
+    plan: free
+    databaseName: aimak_db
+    user: aimak_user
+
+services:
+  # ==========================================
+
+  # CACHE: Redis 7
+  # ==========================================
+  - type: redis
+    name: aimak-redis
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+
+  # ==========================================
+  # BACKEND: NestJS API
+  # ==========================================
+  - type: web
+    name: aimak-api
+    runtime: node
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile && cd apps/api && pnpm prisma generate && pnpm migrate:deploy && pnpm build
+    startCommand: cd apps/api && pnpm start:prod
+    
+    healthCheckPath: /api/health
+    
+    autoDeploy: true
+    
+    envVars:
+      - key: NODE_ENV
+        value: production
+      
+      - key: PORT
+        value: 4000
+      
+      # DATABASE - автоматически из databases секции
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aimak-postgres
+          property: connectionString
+      
+      # REDIS
+      - key: REDIS_URL
+        fromService:
+          name: aimak-redis
+          type: redis
+          property: connectionString
+      
+      - key: REDIS_HOST
+        fromService:
+          name: aimak-redis
+          type: redis
+          property: host
+      
+      - key: REDIS_PORT
+        fromService:
+          name: aimak-redis
+          type: redis
+          property: port
+      
+      # JWT
+      - key: JWT_SECRET
+        generateValue: true
+      
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+
+      # CORS
+      - key: CORS_ORIGIN
+        fromService:
+          name: aimak-web
+          type: web
+          property: host
+
+      - key: FRONTEND_URL
+        fromService:
+          name: aimak-web
+          type: web
+          property: host
+
+      # AI Configuration
+      # OpenRouter API (REQUIRED for AI features)
+      # Get your API key: https://openrouter.ai/keys
+      - key: OPENROUTER_API_KEY
+        sync: false
+
+      - key: OPENROUTER_MODEL
+        value: qwen/qwen3-4b:free
+
+      # S3
+      # Supabase Storage (используется вместо S3)
+      - key: SUPABASE_URL
+        sync: false
+
+      - key: SUPABASE_KEY
+        sync: false
+
+      - key: SUPABASE_BUCKET
+        value: aimak-media
+
+      # Legacy S3 variables (не используются, но оставлены для совместимости)
+      - key: S3_ENDPOINT
+        sync: false
+
+      - key: S3_ACCESS_KEY
+        sync: false
+
+      - key: S3_SECRET_KEY
+        sync: false
+
+      - key: S3_BUCKET
+        value: aimak-media
+
+      - key: S3_REGION
+        value: eu-central-1
+      
+      # External Services
+      - key: KASPI_API_KEY
+        sync: false
+      
+      - key: KASPI_API_URL
+        value: https://api.kaspi.kz/v1
+      
+      - key: EGOV_CLIENT_ID
+        sync: false
+      
+      - key: EGOV_CLIENT_SECRET
+        sync: false
+      
+      - key: EGOV_API_URL
+        value: https://egov.kz/services/P30.11/rest
+      
+      # Email
+      - key: SMTP_HOST
+        sync: false
+      
+      - key: SMTP_PORT
+        value: 587
+      
+      - key: SMTP_USER
+        sync: false
+      
+      - key: SMTP_PASSWORD
+        sync: false
+      
+      - key: EMAIL_FROM
+        value: noreply@aimak.kz
+      
+      - key: EMAIL_FROM_NAME
+        value: Аймақ ақшамы
+      
+      # Analytics
+      - key: GA_MEASUREMENT_ID
+        sync: false
+      
+      - key: YANDEX_METRIKA_ID
+        sync: false
+      
+      # Search
+      - key: ELASTICSEARCH_URL
+        sync: false
+      
+      - key: MEILISEARCH_HOST
+        sync: false
+      
+      - key: MEILISEARCH_API_KEY
+        sync: false
+      
+      # App
+      - key: APP_NAME
+        value: Aimak Akshamy
+
+      - key: APP_URL
+        fromService:
+          name: aimak-api
+          type: web
+          property: host
+      
+      - key: RATE_LIMIT_PUBLIC
+        value: 100
+      
+      - key: RATE_LIMIT_AUTHENTICATED
+        value: 1000
+
+  # ==========================================
+  # FRONTEND: Next.js 14
+  # ==========================================
+  - type: web
+    name: aimak-web
+    runtime: node
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile && cd apps/web && pnpm build
+    startCommand: cd apps/web && pnpm start
+
+    healthCheckPath: /
+
+    autoDeploy: true
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      
+      - key: PORT
+        value: 3000
+
+      # API URL - Points to the backend API service
+      # Web app uses this to connect to backend API
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+        # IMPORTANT: Set this in Render Dashboard to:
+        # https://aimak-api.onrender.com/api (replace aimak-api with actual service name)
+        # or use the service URL from Render Dashboard
+
+      - key: API_URL
+        sync: false
+        # IMPORTANT: Set this in Render Dashboard to:
+        # https://aimak-api.onrender.com/api (replace aimak-api with actual service name)
+
+      
+      - key: NEXT_PUBLIC_APP_NAME
+        value: Аймақ ақшамы
+      
+      - key: NEXT_PUBLIC_APP_NAME_EN
+        value: Aimak Akshamy
+      
+      - key: NEXT_PUBLIC_APP_DESCRIPTION
+        value: Қоғамдық-саяси желілік басылым - Общественно-политическое сетевое издание
+
+      - key: NEXT_PUBLIC_APP_KEYWORDS
+        value: жаңалықтар, қазақстан, новости, казахстан, сетевое издание, желілік басылым
+      
+      - key: NEXT_PUBLIC_DEFAULT_LANGUAGE
+        value: kz
+      
+      - key: NEXT_PUBLIC_SUPPORTED_LANGUAGES
+        value: kz,ru
+      
+      - key: NEXT_PUBLIC_DEFAULT_LOCALE
+        value: kk-KZ
+      
+      - key: NEXT_PUBLIC_SITE_URL
+        fromService:
+          name: aimak-web
+          type: web
+          property: host
+      
+      - key: NEXT_PUBLIC_SITE_NAME
+        value: aimak.kz
+      
+      - key: NEXT_PUBLIC_SITE_TITLE
+        value: Аймақ ақшамы - Қоғамдық-саяси желілік басылым
+      
+      - key: NEXT_PUBLIC_OG_IMAGE
+        value: /images/og-image.jpg
+      
+      - key: NEXT_PUBLIC_GA_ID
+        sync: false
+      
+      - key: NEXT_PUBLIC_YANDEX_METRIKA_ID
+        sync: false
+      
+      - key: NEXT_PUBLIC_FACEBOOK_PIXEL_ID
+        sync: false
+      
+      - key: NEXT_PUBLIC_HOTJAR_ID
+        sync: false
+      
+      - key: NEXT_PUBLIC_CDN_URL
+        sync: false
+      
+      - key: NEXT_PUBLIC_MEDIA_URL
+        sync: false
+      
+      - key: NEXT_PUBLIC_IMAGE_DOMAINS
+        value: aimak.kz,cdn.aimak.kz,storage.googleapis.com
+      
+      - key: NEXT_PUBLIC_ENABLE_COMMENTS
+        value: true
+      
+      - key: NEXT_PUBLIC_ENABLE_DARK_MODE
+        value: true
+      
+      - key: NEXT_PUBLIC_ENABLE_PWA
+        value: true
+      
+      - key: NEXT_PUBLIC_ENABLE_OFFLINE
+        value: true
+      
+      - key: NEXT_PUBLIC_ENABLE_PUSH_NOTIFICATIONS
+        value: true
+      
+      - key: NEXT_PUBLIC_ENABLE_ADS
+        value: true
+      
+      - key: NEXT_PUBLIC_GOOGLE_ADSENSE_ID
+        sync: false
+      
+      - key: NEXT_PUBLIC_YANDEX_DIRECT_ID
+        sync: false
+      
+      - key: NEXT_PUBLIC_FACEBOOK_APP_ID
+        sync: false
+      
+      - key: NEXT_PUBLIC_VK_APP_ID
+        sync: false
+      
+      - key: NEXT_PUBLIC_TELEGRAM_BOT_NAME
+        value: aimak_bot
+      
+      - key: NEXT_PUBLIC_ENABLE_ANALYTICS
+        value: true
+      
+      - key: NEXT_PUBLIC_IMAGE_OPTIMIZATION
+        value: true
+      
+      - key: NEXT_PUBLIC_LAZY_LOAD_IMAGES
+        value: true
+      
+      - key: NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+        sync: false
+      
+      - key: RECAPTCHA_SECRET_KEY
+        sync: false
