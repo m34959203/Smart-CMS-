@@ -1,0 +1,81 @@
+# ====================================
+# Dockerfile for NestJS API (Railway)
+# ====================================
+
+FROM node:20-alpine AS base
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Install dependencies for native modules
+RUN apk add --no-cache libc6-compat openssl
+
+WORKDIR /app
+
+# ====================================
+# Dependencies Stage
+# ====================================
+FROM base AS deps
+
+# Copy package files
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# ====================================
+# Builder Stage
+# ====================================
+FROM base AS builder
+
+WORKDIR /app
+
+# Copy dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+
+# Copy source code
+COPY . .
+
+# Generate Prisma client
+RUN cd apps/api && pnpm prisma generate
+
+# Build API
+RUN cd apps/api && pnpm build
+
+# ====================================
+# Production Stage
+# ====================================
+FROM base AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nestjs
+
+# Copy built application
+COPY --from=builder /app/apps/api/dist ./dist
+COPY --from=builder /app/apps/api/prisma ./prisma
+COPY --from=builder /app/apps/api/scripts ./scripts
+COPY --from=builder /app/apps/api/package.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/node_modules/.prisma ./node_modules/.prisma
+
+# Create uploads directory
+RUN mkdir -p uploads && chown -R nestjs:nodejs uploads
+
+USER nestjs
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-4000}/api/health || exit 1
+
+EXPOSE ${PORT:-4000}
+
+# Run migrations and start server
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main"]

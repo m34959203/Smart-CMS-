@@ -1,0 +1,21 @@
+# ====================================
+# Railway Configuration for Web Service
+# ====================================
+
+[build]
+# Use Dockerfile for building
+dockerfilePath = "apps/web/Dockerfile"
+# Build context is the root of the monorepo
+buildContext = "."
+# Build arguments
+[build.args]
+NEXT_PUBLIC_API_URL = "${API_URL}"
+NEXT_PUBLIC_APP_NAME = "Aimak Akshamy"
+NEXT_PUBLIC_APP_DESCRIPTION = "City Newspaper"
+
+[deploy]
+# Number of replicas (1 for free tier)
+numReplicas = 1
+# Restart policy
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

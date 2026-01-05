@@ -3,6 +3,9 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
 
+  // Enable standalone output for Docker deployment
+  output: 'standalone',
+
   // Включаем экспериментальные функции для улучшения кэширования
   experimental: {
     // Турбо-режим для более быстрой разработки
@@ -75,6 +78,14 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '**.onrender.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.railway.app',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.up.railway.app',
       },
       {
         protocol: 'https',
