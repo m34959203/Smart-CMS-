@@ -65,6 +65,12 @@ AIMAK/
 - **[Frontend](./docs/frontend/README.md)** - компоненты и хуки
 - **[Развертывание](./docs/deployment/README.md)** - Docker, VPS, Plesk
 
+### Развертывание
+
+- **[Railway.com](./docs/RAILWAY-DEPLOYMENT.md)** - облачное развертывание на Railway
+- [Render.com](./docs/deployment/README.md) - развертывание на Render
+- [Docker/VPS/Plesk](./docs/deployment/README.md) - локальное развертывание
+
 ### Руководства
 
 - [Мультиязычность](./docs/guides/TRANSLATIONS.md)
