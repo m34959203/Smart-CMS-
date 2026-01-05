@@ -1,0 +1,298 @@
+// =============================================================================
+// СИСТЕМА МОНИТОРИНГА АКТУАЛЬНЫХ ТЕМ - СХЕМА БАЗЫ ДАННЫХ
+// =============================================================================
+// Добавить в apps/api/prisma/schema.prisma
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// ИСТОЧНИКИ НОВОСТЕЙ
+// -----------------------------------------------------------------------------
+
+/// Источник новостей (сайт, RSS-лента)
+model NewsSource {
+  id            String   @id @default(uuid())
+
+  /// Название источника
+  name          String   // "Tengrinews"
+
+  /// Уникальный slug
+  slug          String   @unique // "tengrinews"
+
+  /// URL главной страницы
+  url           String   // "https://tengrinews.kz"
+
+  /// URL RSS-ленты (если есть)
+  rssUrl        String?  // "https://tengrinews.kz/rss"
+
+  /// Тип парсера
+  parserType    ParserType @default(RSS)
+
+  /// Конфигурация HTML-парсера (JSON)
+  /// {
+  ///   "listUrl": "/news/",
+  ///   "articleSelector": ".news-item",
+  ///   "titleSelector": ".news-title",
+  ///   "linkSelector": "a",
+  ///   "dateSelector": ".news-date",
+  ///   "dateFormat": "DD.MM.YYYY HH:mm"
+  /// }
+  parseConfig   Json?
+
+  /// Язык контента
+  language      SourceLanguage @default(BOTH)
+
+  /// Категория источника
+  category      String   @default("news") // news, politics, business, sport
+
+  /// Приоритет (1 = каждые 15 мин, 2 = каждые 30 мин, 3 = каждый час)
+  priority      Int      @default(2)
+
+  /// Активен ли источник
+  isActive      Boolean  @default(true)
+
+  /// Время последнего парсинга
+  lastParsedAt  DateTime?
+
+  /// Статус последнего парсинга
+  lastParseStatus ParseStatus?
+
+  /// Сообщение об ошибке
+  lastParseError String?
+
+  /// Количество успешных парсингов
+  successCount  Int      @default(0)
+
+  /// Количество ошибок подряд
+  errorCount    Int      @default(0)
+
+  /// Связанные новости
+  newsItems     NewsItem[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive, priority])
+  @@index([lastParsedAt])
+}
+
+/// Тип парсера
+enum ParserType {
+  RSS      // RSS/Atom лента
+  HTML     // HTML-парсинг
+  API      // REST API
+}
+
+/// Язык источника
+enum SourceLanguage {
+  KZ       // Только казахский
+  RU       // Только русский
+  BOTH     // Оба языка
+}
+
+/// Статус парсинга
+enum ParseStatus {
+  SUCCESS
+  ERROR
+  TIMEOUT
+  BLOCKED
+}
+
+// -----------------------------------------------------------------------------
+// НОВОСТИ (ЗАГОЛОВКИ)
+// -----------------------------------------------------------------------------
+
+/// Новость (только заголовок и ссылка)
+model NewsItem {
+  id            String   @id @default(uuid())
+
+  /// ID источника
+  sourceId      String
+  source        NewsSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  /// Внешний ID (для дедупликации)
+  externalId    String   // URL или GUID
+
+  /// URL оригинала
+  url           String
+
+  /// Заголовок
+  title         String
+
+  /// Дата публикации в источнике
+  publishedAt   DateTime
+
+  /// Дата парсинга
+  scrapedAt     DateTime @default(now())
+
+  /// Определённый язык
+  language      String   @default("ru") // kz, ru
+
+  /// Извлечённые ключевые слова
+  keywords      String[] // ["президент", "послание", "казахстан"]
+
+  /// Привязка к теме
+  topicId       String?
+  topic         HotTopic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  /// Обработана ли новость
+  isProcessed   Boolean  @default(false)
+
+  createdAt     DateTime @default(now())
+
+  @@unique([sourceId, externalId])
+  @@index([publishedAt])
+  @@index([topicId])
+  @@index([isProcessed])
+  @@index([language])
+}
+
+// -----------------------------------------------------------------------------
+// ГОРЯЧИЕ ТЕМЫ
+// -----------------------------------------------------------------------------
+
+/// Горячая тема (кластер новостей)
+model HotTopic {
+  id            String   @id @default(uuid())
+
+  /// Название темы на казахском
+  titleKz       String
+
+  /// Название темы на русском
+  titleRu       String
+
+  /// Ключевые слова темы
+  keywords      String[] // ["президент", "послание"]
+
+  /// Категория
+  category      TopicCategory @default(SOCIETY)
+
+  // --- МЕТРИКИ ---
+
+  /// Количество упоминаний (новостей)
+  mentionsCount Int      @default(0)
+
+  /// Количество уникальных источников
+  sourcesCount  Int      @default(0)
+
+  /// Скорость роста (упоминаний/час)
+  trendScore    Float    @default(0)
+
+  /// Пиковое значение упоминаний
+  peakMentions  Int      @default(0)
+
+  // --- ВРЕМЕННЫЕ МЕТКИ ---
+
+  /// Первое упоминание
+  firstSeenAt   DateTime @default(now())
+
+  /// Последнее упоминание
+  lastSeenAt    DateTime @default(now())
+
+  /// Время пика активности
+  peakedAt      DateTime?
+
+  // --- СТАТУС ---
+
+  /// Активна ли тема (показывать в ленте)
+  isActive      Boolean  @default(true)
+
+  /// Архивирована
+  isArchived    Boolean  @default(false)
+
+  /// Связанные новости
+  newsItems     NewsItem[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive, trendScore])
+  @@index([category])
+  @@index([firstSeenAt])
+  @@index([lastSeenAt])
+}
+
+/// Категория темы
+enum TopicCategory {
+  POLITICS    // Саясат / Политика
+  ECONOMY     // Экономика
+  SOCIETY     // Қоғам / Общество
+  SPORT       // Спорт
+  CULTURE     // Мәдениет / Культура
+  WORLD       // Әлем / Мир
+  TECH        // Технология / Технологии
+  INCIDENTS   // Оқиғалар / Происшествия
+}
+
+// -----------------------------------------------------------------------------
+// ЛОГИ ПАРСИНГА
+// -----------------------------------------------------------------------------
+
+/// Лог парсинга
+model ParseLog {
+  id            String   @id @default(uuid())
+
+  /// ID источника
+  sourceId      String
+
+  /// Статус
+  status        ParseStatus
+
+  /// Количество полученных новостей
+  itemsCount    Int      @default(0)
+
+  /// Количество новых новостей
+  newItemsCount Int      @default(0)
+
+  /// Длительность (мс)
+  durationMs    Int
+
+  /// Сообщение об ошибке
+  error         String?
+
+  /// Детали (JSON)
+  details       Json?
+
+  createdAt     DateTime @default(now())
+
+  @@index([sourceId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+// -----------------------------------------------------------------------------
+// НАСТРОЙКИ СИСТЕМЫ
+// -----------------------------------------------------------------------------
+
+/// Настройки парсера
+model NewsParserSettings {
+  id                    String   @id @default("default")
+
+  /// Парсинг включён
+  isEnabled             Boolean  @default(true)
+
+  /// Интервал для приоритета 1 (минуты)
+  priority1Interval     Int      @default(15)
+
+  /// Интервал для приоритета 2 (минуты)
+  priority2Interval     Int      @default(30)
+
+  /// Интервал для приоритета 3 (минуты)
+  priority3Interval     Int      @default(60)
+
+  /// Минимум источников для создания темы
+  minSourcesForTopic    Int      @default(3)
+
+  /// Хранить данные (дней)
+  retentionDays         Int      @default(7)
+
+  /// User-Agent для запросов
+  userAgent             String   @default("Mozilla/5.0 (compatible; SmartCMS/1.0)")
+
+  /// Задержка между запросами (мс)
+  requestDelay          Int      @default(1000)
+
+  /// Таймаут запроса (мс)
+  requestTimeout        Int      @default(10000)
+
+  updatedAt             DateTime @updatedAt
+}

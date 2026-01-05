@@ -1,0 +1,70 @@
+# ==========================================
+# Plesk Git Deployment Configuration
+# ==========================================
+# This file configures automatic deployment from Git
+# when you push to the repository in Plesk
+
+# Install dependencies and build the project
+onDeploy:
+  - echo "🚀 Starting deployment..."
+
+  # Check Node.js version
+  - echo "📦 Node.js version:"
+  - node --version
+
+  # Install pnpm if not available
+  - echo "📦 Installing pnpm..."
+  - npm install -g pnpm || true
+
+  # Install dependencies
+  - echo "📦 Installing dependencies..."
+  - pnpm install --frozen-lockfile
+
+  # Install root-level proxy dependencies
+  - echo "📦 Installing proxy dependencies..."
+  - npm install http-proxy --save
+
+  # Setup environment files with production configuration
+  - echo "🔧 Setting up environment..."
+  - bash setup-env.sh
+
+  # Generate Prisma client
+  - echo "🗄️ Generating Prisma client..."
+  - cd apps/api && pnpm prisma generate && cd ../..
+
+  # Build API
+  - echo "🔨 Building API..."
+  - pnpm --filter api build
+
+  # Build Web
+  - echo "🔨 Building Web..."
+  - pnpm --filter web build
+
+  # Create required directories
+  - echo "📁 Creating required directories..."
+  - mkdir -p uploads logs
+  - chmod 755 uploads logs
+
+  # Run database migrations (only if DB is configured)
+  - echo "🗄️ Running database migrations..."
+  - cd apps/api && pnpm prisma migrate deploy || echo "⚠️ Migrations failed - make sure DATABASE_URL is configured" && cd ../..
+
+  - echo "✅ Deployment completed successfully!"
+  - echo ""
+  - echo "📝 Next steps:"
+  - echo "1. Start applications: bash start.sh"
+  - echo "2. Create admin user: cd apps/api && node scripts/create-admin.js"
+  - echo "3. Check status: pm2 status"
+  - echo "4. View logs: pm2 logs"
+
+# Clean up unnecessary files
+exclude:
+  - .git
+  - .github
+  - node_modules
+  - "*.log"
+  - "*.md"
+  - .env.example
+  - .dockerignore
+  - docker-compose.yml
+  - pnpm-lock.yaml

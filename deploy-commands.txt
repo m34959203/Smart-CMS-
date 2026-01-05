@@ -1,0 +1,130 @@
+# ==========================================
+# Команды для развертывания AIMAK на PS.kz
+# ==========================================
+# Скопируйте и выполните эти команды по очереди
+# после подключения к серверу
+
+# 1. Перейдите в директорию домена
+cd /var/www/vhosts/aimaqaqshamy.kz
+
+# 2. Удалите старые файлы (если есть)
+rm -rf httpdocs/*
+
+# 3. Клонируйте репозиторий
+git clone https://github.com/m34959203/AIMAK.git httpdocs
+
+# 4. Перейдите в директорию проекта
+cd httpdocs
+
+# 5. Переключитесь на нужную ветку
+git checkout claude/deploy-ps-k-hosting-017kP4rrAJz3fsxwQP7HMSUr
+
+# 6. Запустите автоматическую установку
+bash quickstart.sh
+
+# ==========================================
+# Если quickstart.sh не работает, выполните вручную:
+# ==========================================
+
+# Установите pnpm
+npm install -g pnpm
+
+# Установите PM2
+npm install -g pm2
+
+# Установите зависимости
+pnpm install --frozen-lockfile
+
+# Настройте окружение
+bash setup-env.sh
+
+# Сгенерируйте Prisma client
+cd apps/api && pnpm prisma generate && cd ../..
+
+# Соберите проект
+pnpm --filter api build
+pnpm --filter web build
+
+# Создайте директории
+mkdir -p uploads logs
+chmod 755 uploads logs
+
+# Запустите миграции БД
+cd apps/api && pnpm prisma migrate deploy && cd ../..
+
+# Запустите приложения
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup
+
+# ==========================================
+# Проверка работы
+# ==========================================
+
+# Проверьте статус
+pm2 status
+
+# Проверьте логи
+pm2 logs
+
+# Проверьте API
+curl http://localhost:4000/api/health
+
+# ==========================================
+# Полезные команды
+# ==========================================
+
+# Перезапустить приложения
+pm2 restart all
+
+# Остановить приложения
+pm2 stop all
+
+# Просмотр логов
+pm2 logs aimak-api
+pm2 logs aimak-web
+
+# ==========================================
+# Обновление приложения (ПОЛНЫЙ ПОРЯДОК)
+# ==========================================
+cd /var/www/vhosts/aimaqaqshamy.kz/httpdocs
+git pull origin main
+pnpm install
+
+# ВАЖНО: Перегенерировать Prisma client после pnpm install
+cd apps/api && pnpm prisma generate && cd ../..
+
+# Собрать проект
+pnpm --filter api build
+pnpm --filter web build
+
+# Перезапустить PM2
+pm2 restart all
+
+# ==========================================
+# Быстрое исправление ошибок PM2
+# ==========================================
+# Если PM2 показывает "errored" статус, выполните:
+
+# 1. Остановить PM2
+pm2 stop all
+
+# 2. Переустановить зависимости
+cd /var/www/vhosts/aimaqaqshamy.kz/httpdocs
+pnpm install --force
+
+# 3. Перегенерировать Prisma client (КРИТИЧЕСКИ ВАЖНО для aimak-api!)
+cd apps/api && pnpm prisma generate && cd ../..
+
+# 4. Пересобрать проект
+pnpm --filter api build
+pnpm --filter web build
+
+# 5. Удалить старые PM2 процессы и запустить заново
+pm2 delete all
+pm2 start ecosystem.config.js
+pm2 save
+
+# Проверить статус
+pm2 status
+pm2 logs --lines 20

@@ -1,0 +1,257 @@
+{
+  "_comment": "Конфигурация источников новостей для системы мониторинга",
+  "_version": "1.0",
+  "_updated": "2025-01-04",
+
+  "sources": [
+    {
+      "name": "Tengrinews",
+      "slug": "tengrinews",
+      "url": "https://tengrinews.kz",
+      "rssUrl": "https://tengrinews.kz/rss/",
+      "parserType": "RSS",
+      "language": "BOTH",
+      "category": "news",
+      "priority": 1,
+      "notes": "Главный новостной портал Казахстана. RSS работает стабильно."
+    },
+    {
+      "name": "Inform.kz",
+      "slug": "inform",
+      "url": "https://www.inform.kz",
+      "rssUrl": "https://www.inform.kz/ru/rss/",
+      "parserType": "RSS",
+      "language": "BOTH",
+      "category": "news",
+      "priority": 1,
+      "notes": "Казахское информационное агентство."
+    },
+    {
+      "name": "Kazinform",
+      "slug": "kazinform",
+      "url": "https://www.kazinform.kz",
+      "rssUrl": "https://www.kazinform.kz/ru/rss/all",
+      "parserType": "RSS",
+      "language": "BOTH",
+      "category": "news",
+      "priority": 1,
+      "notes": "Международное информационное агентство."
+    },
+    {
+      "name": "24.kz",
+      "slug": "24kz",
+      "url": "https://24.kz",
+      "parserType": "HTML",
+      "language": "BOTH",
+      "category": "news",
+      "priority": 1,
+      "parseConfig": {
+        "listUrl": "/ru/news/",
+        "articleSelector": ".news-item, .news-block__item",
+        "titleSelector": ".news-item__title, .news-block__title",
+        "linkSelector": "a",
+        "dateSelector": ".news-item__date, .news-block__date",
+        "dateFormat": "DD.MM.YYYY HH:mm"
+      },
+      "notes": "ТВ-канал. RSS отсутствует, парсим HTML."
+    },
+    {
+      "name": "NUR.kz",
+      "slug": "nur",
+      "url": "https://www.nur.kz",
+      "rssUrl": "https://www.nur.kz/rss/",
+      "parserType": "RSS",
+      "language": "BOTH",
+      "category": "news",
+      "priority": 2,
+      "notes": "Популярный новостной портал."
+    },
+    {
+      "name": "Zakon.kz",
+      "slug": "zakon",
+      "url": "https://www.zakon.kz",
+      "rssUrl": "https://www.zakon.kz/rss/",
+      "parserType": "RSS",
+      "language": "RU",
+      "category": "politics",
+      "priority": 2,
+      "notes": "Юридические и политические новости."
+    },
+    {
+      "name": "Liter.kz",
+      "slug": "liter",
+      "url": "https://liter.kz",
+      "parserType": "HTML",
+      "language": "KZ",
+      "category": "news",
+      "priority": 2,
+      "parseConfig": {
+        "listUrl": "/",
+        "articleSelector": ".news-card",
+        "titleSelector": ".news-card__title",
+        "linkSelector": "a",
+        "dateSelector": ".news-card__date",
+        "dateFormat": "DD.MM.YYYY"
+      },
+      "notes": "Казахоязычное издание."
+    },
+    {
+      "name": "Kapital.kz",
+      "slug": "kapital",
+      "url": "https://kapital.kz",
+      "rssUrl": "https://kapital.kz/rss/",
+      "parserType": "RSS",
+      "language": "RU",
+      "category": "business",
+      "priority": 2,
+      "notes": "Деловые новости."
+    },
+    {
+      "name": "Orda.kz",
+      "slug": "orda",
+      "url": "https://orda.kz",
+      "parserType": "HTML",
+      "language": "RU",
+      "category": "politics",
+      "priority": 2,
+      "parseConfig": {
+        "listUrl": "/",
+        "articleSelector": ".post-card",
+        "titleSelector": ".post-card__title",
+        "linkSelector": "a",
+        "dateSelector": ".post-card__date",
+        "dateFormat": "DD MMMM YYYY"
+      },
+      "notes": "Аналитическое издание."
+    },
+    {
+      "name": "Vlast.kz",
+      "slug": "vlast",
+      "url": "https://vlast.kz",
+      "parserType": "HTML",
+      "language": "RU",
+      "category": "politics",
+      "priority": 2,
+      "parseConfig": {
+        "listUrl": "/",
+        "articleSelector": ".article-item",
+        "titleSelector": ".article-item__title",
+        "linkSelector": "a",
+        "dateSelector": ".article-item__date",
+        "dateFormat": "DD.MM.YYYY"
+      },
+      "notes": "Политическая аналитика."
+    },
+    {
+      "name": "Akorda.kz",
+      "slug": "akorda",
+      "url": "https://www.akorda.kz",
+      "parserType": "HTML",
+      "language": "BOTH",
+      "category": "politics",
+      "priority": 1,
+      "parseConfig": {
+        "listUrl": "/ru/events",
+        "articleSelector": ".news-list__item",
+        "titleSelector": ".news-list__title",
+        "linkSelector": "a",
+        "dateSelector": ".news-list__date",
+        "dateFormat": "DD.MM.YYYY"
+      },
+      "notes": "Официальный сайт Президента."
+    },
+    {
+      "name": "Government.kz",
+      "slug": "government",
+      "url": "https://www.government.kz",
+      "parserType": "HTML",
+      "language": "BOTH",
+      "category": "politics",
+      "priority": 3,
+      "parseConfig": {
+        "listUrl": "/ru/news",
+        "articleSelector": ".news-item",
+        "titleSelector": ".news-item__title",
+        "linkSelector": "a",
+        "dateSelector": ".news-item__date",
+        "dateFormat": "DD.MM.YYYY"
+      },
+      "notes": "Сайт Правительства."
+    },
+    {
+      "name": "Sputnik Kazakhstan",
+      "slug": "sputnik-kz",
+      "url": "https://ru.sputnik.kz",
+      "rssUrl": "https://ru.sputnik.kz/export/rss2/archive/index.xml",
+      "parserType": "RSS",
+      "language": "RU",
+      "category": "news",
+      "priority": 2,
+      "notes": "Казахстанское отделение Sputnik."
+    },
+    {
+      "name": "Kursiv.kz",
+      "slug": "kursiv",
+      "url": "https://kursiv.kz",
+      "rssUrl": "https://kursiv.kz/rss",
+      "parserType": "RSS",
+      "language": "RU",
+      "category": "business",
+      "priority": 2,
+      "notes": "Деловое издание."
+    },
+    {
+      "name": "Forbes Kazakhstan",
+      "slug": "forbes-kz",
+      "url": "https://forbes.kz",
+      "parserType": "HTML",
+      "language": "RU",
+      "category": "business",
+      "priority": 2,
+      "parseConfig": {
+        "listUrl": "/news",
+        "articleSelector": ".news-card",
+        "titleSelector": ".news-card__title",
+        "linkSelector": "a",
+        "dateSelector": ".news-card__date",
+        "dateFormat": "DD.MM.YYYY"
+      },
+      "notes": "Forbes Kazakhstan."
+    }
+  ],
+
+  "categories": {
+    "news": {
+      "nameKz": "Жаңалықтар",
+      "nameRu": "Новости"
+    },
+    "politics": {
+      "nameKz": "Саясат",
+      "nameRu": "Политика"
+    },
+    "business": {
+      "nameKz": "Бизнес",
+      "nameRu": "Бизнес"
+    },
+    "sport": {
+      "nameKz": "Спорт",
+      "nameRu": "Спорт"
+    },
+    "culture": {
+      "nameKz": "Мәдениет",
+      "nameRu": "Культура"
+    },
+    "tech": {
+      "nameKz": "Технология",
+      "nameRu": "Технологии"
+    }
+  },
+
+  "defaults": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "requestTimeout": 10000,
+    "requestDelay": 1000,
+    "maxRetries": 3,
+    "retryDelay": 2000
+  }
+}
