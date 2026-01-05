@@ -112,8 +112,12 @@
 1. Перейдите в **Settings** → **Build**
 2. Установите:
    - **Root Directory**: `/` (корень репозитория)
-   - **Dockerfile Path**: `apps/api/Dockerfile`
    - **Watch Paths**: `apps/api/**`
+
+3. Перейдите во вкладку **Variables** и добавьте:
+   ```
+   RAILWAY_DOCKERFILE_PATH=Dockerfile.api
+   ```
 
 ### Шаг 3: Настройка деплоя
 
@@ -172,8 +176,12 @@ MAX_FILE_SIZE=5242880
 1. Перейдите в **Settings** → **Build**
 2. Установите:
    - **Root Directory**: `/` (корень репозитория)
-   - **Dockerfile Path**: `apps/web/Dockerfile`
    - **Watch Paths**: `apps/web/**`
+
+3. Перейдите во вкладку **Variables** и добавьте:
+   ```
+   RAILWAY_DOCKERFILE_PATH=Dockerfile.web
+   ```
 
 ### Шаг 3: Настройка переменных
 
@@ -318,10 +326,10 @@ API сервис имеет эндпоинт `/api/health` для проверк
 
 ```bash
 # Сборка Docker образа API
-docker build -f apps/api/Dockerfile -t smart-cms-api .
+docker build -f Dockerfile.api -t smart-cms-api .
 
 # Сборка Docker образа Web
-docker build -f apps/web/Dockerfile -t smart-cms-web \
+docker build -f Dockerfile.web -t smart-cms-web \
   --build-arg NEXT_PUBLIC_API_URL=http://localhost:4000/api .
 
 # Запуск контейнеров локально
