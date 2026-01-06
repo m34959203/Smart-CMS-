@@ -1,174 +1,171 @@
-# Скрипты для управления Render
+# Scripts / Скрипты
 
-## update-render-env.sh
+Служебные скрипты для развертывания, настройки и обслуживания Smart CMS.
 
-Bash скрипт для обновления переменных окружения в Render через API.
+## Структура папки
 
-### Использование:
+```
+scripts/
+├── README.md               # Этот файл
+├── setup-env.sh            # Интерактивная настройка окружения
+├── deploy/                 # Скрипты развертывания
+│   ├── quickstart.sh       # Быстрая установка PS.kz
+│   ├── vps-install.sh      # Установка на VPS
+│   ├── plesk-deploy.sh     # Развертывание на Plesk
+│   └── remote-install.sh   # Удаленная установка
+├── setup/                  # Скрипты настройки
+│   ├── nginx-setup.sh      # Настройка Nginx
+│   └── setup-vps-nginx.sh  # Настройка Nginx на VPS
+├── maintenance/            # Скрипты обслуживания
+│   ├── fix-pm2.sh          # Исправление PM2
+│   └── diagnose-domain.sh  # Диагностика домена
+├── import/                 # Скрипты импорта
+│   └── windows/            # PowerShell скрипты
+│       ├── import-wordpress.ps1
+│       └── quick-import.ps1
+├── scraper/                # Скрипты парсинга
+│   └── (Python скрипты)
+├── update-render-env.sh    # Обновление переменных Render
+└── update-render-env.js    # Node.js версия
+```
+
+---
+
+## Deploy Scripts / Скрипты развертывания
+
+### quickstart.sh
+
+Автоматическая установка на PS.kz хостинг.
 
 ```bash
-# Установите переменные окружения
+# На сервере PS.kz
+cd /var/www/vhosts/yourdomain.kz/httpdocs
+bash scripts/deploy/quickstart.sh
+```
+
+### vps-install.sh
+
+Установка на чистый VPS (Ubuntu/Debian).
+
+```bash
+# На VPS
+git clone https://github.com/m34959203/Smart-CMS-.git
+cd Smart-CMS-
+bash scripts/deploy/vps-install.sh
+```
+
+### plesk-deploy.sh
+
+Развертывание через Plesk панель.
+
+```bash
+bash scripts/deploy/plesk-deploy.sh
+```
+
+---
+
+## Setup Scripts / Скрипты настройки
+
+### setup-env.sh
+
+Интерактивная настройка переменных окружения.
+
+```bash
+./scripts/setup-env.sh
+```
+
+Скрипт поможет:
+- Создать .env файлы из примеров
+- Настроить API ключи для AI (Gemini/OpenRouter)
+- Получить пошаговые инструкции
+
+### setup-vps-nginx.sh
+
+Автоматическая настройка Nginx для VPS.
+
+```bash
+sudo bash scripts/setup/setup-vps-nginx.sh yourdomain.kz
+```
+
+---
+
+## Maintenance Scripts / Скрипты обслуживания
+
+### fix-pm2.sh
+
+Исправление проблем с PM2.
+
+```bash
+bash scripts/maintenance/fix-pm2.sh
+```
+
+### diagnose-domain.sh
+
+Диагностика проблем с доменом.
+
+```bash
+bash scripts/maintenance/diagnose-domain.sh yourdomain.kz
+```
+
+---
+
+## Import Scripts / Скрипты импорта
+
+### Windows (PowerShell)
+
+```powershell
+# Импорт из WordPress
+.\scripts\import\windows\import-wordpress.ps1
+
+# Быстрый импорт
+.\scripts\import\windows\quick-import.ps1
+```
+
+---
+
+## Render Environment Update
+
+### update-render-env.sh
+
+Bash скрипт для обновления переменных окружения в Render.
+
+```bash
 export RENDER_API_KEY="your-render-api-key"
 export SERVICE_ID="srv-your-service-id"
-
-# Запустите скрипт
 ./scripts/update-render-env.sh
 ```
 
-### Переопределение значений:
+### update-render-env.js
+
+Node.js версия.
 
 ```bash
-# Установите свои значения
-export NEW_GEMINI_KEY="your-new-gemini-key"
-export NEW_OPENROUTER_MODEL="your-model"
-
-./scripts/update-render-env.sh
-```
-
-### Требования:
-
-- curl
-- bash 4.0+
-- Render API key
-- Service ID
-
-## update-render-env.js
-
-Node.js скрипт для обновления переменных окружения в Render через API.
-
-### Использование:
-
-```bash
-# С переменными окружения
 RENDER_API_KEY="your-key" SERVICE_ID="srv-id" node scripts/update-render-env.js
-
-# Или с параметрами
-node scripts/update-render-env.js srv-your-service-id your-render-api-key
 ```
 
-### Переопределение значений:
+---
 
-```bash
-NEW_GEMINI_KEY="your-key" \
-NEW_OPENROUTER_MODEL="your-model" \
-node scripts/update-render-env.js srv-id api-key
-```
+## Требования
 
-### Требования:
+| Скрипт | Требования |
+|--------|------------|
+| Bash скрипты | Bash 4.0+, curl |
+| Node.js скрипты | Node.js 18+ |
+| PowerShell | Windows PowerShell 5.1+ |
 
-- Node.js 14+
-- Render API key
-- Service ID
-
-## Получение необходимых данных
-
-### Render API Key:
-
-1. Откройте: https://dashboard.render.com/account/settings
-2. Перейдите в раздел "API Keys"
-3. Создайте новый ключ или скопируйте существующий
-
-### Service ID:
-
-1. Откройте ваш сервис в Dashboard
-2. Service ID находится в URL: `https://dashboard.render.com/web/<YOUR_SERVICE_ID>`
-3. Например: `srv-c1234567890abcdef`
-
-## Что обновляется
-
-По умолчанию скрипты обновляют:
-
-- `GEMINI_API_KEY`: Новый ключ Google Gemini API
-- `OPENROUTER_MODEL`: Модель для OpenRouter (`meta-llama/llama-3.2-3b-instruct:free`)
+---
 
 ## Безопасность
 
 - Никогда не коммитьте API ключи в git
 - Используйте переменные окружения
-- После использования очистите историю команд: `history -c`
+- После использования очистите историю: `history -c`
 
-## Альтернативы
+---
 
-### Render Dashboard (рекомендуется для новичков):
+## Связанная документация
 
-https://dashboard.render.com → Services → aimak-api → Environment
-
-### Render CLI:
-
-```bash
-# Установка
-npm install -g @render/cli
-
-# Авторизация
-render login
-
-# Обновление
-render env:set KEY="value" --service=aimak-api
-```
-
-## Troubleshooting
-
-### Ошибка: Unauthorized (401)
-
-Проверьте RENDER_API_KEY:
-- Ключ должен быть актуальным
-- Убедитесь, что нет лишних пробелов
-- Проверьте права доступа
-
-### Ошибка: Service not found (404)
-
-Проверьте SERVICE_ID:
-- ID должен начинаться с `srv-`
-- Проверьте в Dashboard: URL сервиса
-- Убедитесь, что у вас есть доступ к сервису
-
-### Ошибка: Rate limit (429)
-
-Слишком много запросов к Render API:
-- Подождите 1 минуту
-- Не запускайте скрипт параллельно
-
-### Скрипт завершается без вывода
-
-Проверьте права:
-```bash
-chmod +x scripts/update-render-env.sh
-```
-
-Проверьте bash:
-```bash
-bash --version  # Должна быть 4.0+
-```
-
-## Логи
-
-Скрипты выводят детальную информацию:
-- Зеленый ✓: Успешно
-- Красный ✗: Ошибка
-- Желтый: Информация
-
-Пример успешного вывода:
-```
-==================================================
-  Обновление переменных окружения Render
-==================================================
-
-Service ID: srv-c1234567890abcdef
-
-Переменные для обновления:
-  GEMINI_API_KEY: AIzaSyAkB14IdkDF6K...
-  OPENROUTER_MODEL: meta-llama/llama-3.2-3b-instruct:free
-
-Обновление GEMINI_API_KEY... ✓ OK
-Обновление OPENROUTER_MODEL... ✓ OK
-
-==================================================
-  Обновление завершено!
-==================================================
-```
-
-## Дополнительно
-
-Для получения дополнительной информации см.:
-- `/home/user/AIMAK/docs/RENDER_ENV_UPDATE.md` - Полная инструкция
-- `/home/user/AIMAK/docs/AI_CATEGORIZATION_TROUBLESHOOTING.md` - Диагностика проблем
+- [Deployment Guide](../docs/deployment/README.md)
+- [Environment Variables](../docs/deployment/ENVIRONMENT.md)
+- [VPS Setup](../docs/deployment/VPS_SETUP.md)
+- [Plesk Setup](../docs/deployment/PLESK.md)

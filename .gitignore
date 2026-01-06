@@ -36,3 +36,38 @@ uploads/*
 .webpack-cache
 apps/api/.webpack-cache
 apps/web/.next/cache
+
+# Large binary files (store separately)
+*.pdf
+*.docx
+*.pptx
+*.xlsx
+
+# Metrics screenshots (add manually when needed)
+metrics/*.png
+metrics/*.jpg
+metrics/*.jpeg
+!metrics/.gitkeep
+!metrics/README.md
+
+# Logs
+logs/*
+!logs/.gitkeep
+*.log
+
+# Temporary diagnostic files
+diagnose-*.html
+setup-*.html
+*-presentation.html
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Backup files
+*.bak
+*.backup
+*.old
