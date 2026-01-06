@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "concurrently \"pnpm --filter web dev\" \"pnpm --filter api dev\"",
     "build": "pnpm --filter web build && pnpm --filter api build",
-    "start": "concurrently \"pnpm --filter web start\" \"pnpm --filter api start:prod\"",
+    "start:local": "concurrently \"pnpm --filter web start\" \"pnpm --filter api start:prod\"",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "db:migrate": "pnpm --filter api db:migrate",
