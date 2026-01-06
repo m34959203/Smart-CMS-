@@ -31,11 +31,13 @@ services:
     name: aimak-api
     runtime: node
     plan: free
-    buildCommand: pnpm install --frozen-lockfile && cd apps/api && pnpm prisma generate && pnpm migrate:deploy && pnpm build
-    startCommand: cd apps/api && pnpm start:prod
-    
+    # Build: install deps and build (NO migrations - they run at start)
+    buildCommand: pnpm install --frozen-lockfile && cd apps/api && pnpm prisma generate && pnpm build
+    # Start: run migrations then start (migration errors won't block startup)
+    startCommand: cd apps/api && (pnpm migrate:deploy || echo "Migration warning") && pnpm start:prod
+
     healthCheckPath: /api/health
-    
+
     autoDeploy: true
     
     envVars:
