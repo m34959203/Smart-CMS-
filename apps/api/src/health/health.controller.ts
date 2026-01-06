@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Inject, Optional } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -11,19 +11,51 @@ import { SystemSettingsService } from './system-settings.service';
 @Controller('health')
 export class HealthController {
   constructor(
-    private readonly pm2Service: PM2Service,
-    private readonly systemSettingsService: SystemSettingsService,
+    @Optional() private readonly pm2Service: PM2Service,
+    @Optional() private readonly systemSettingsService: SystemSettingsService,
   ) {}
 
+  /**
+   * Basic health check - NO database dependency
+   * This endpoint MUST work even if database is down
+   */
   @Get()
   @Public()
-  @ApiOperation({ summary: 'Health check endpoint' })
+  @ApiOperation({ summary: 'Basic health check endpoint (no DB required)' })
   check() {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
+      version: process.env.npm_package_version || '1.0.0',
+    };
+  }
+
+  /**
+   * Detailed health check with database status
+   */
+  @Get('detailed')
+  @Public()
+  @ApiOperation({ summary: 'Detailed health check with DB status' })
+  async detailedCheck() {
+    let dbStatus = 'unknown';
+
+    try {
+      if (this.systemSettingsService) {
+        await this.systemSettingsService.getSettings();
+        dbStatus = 'connected';
+      }
+    } catch (error) {
+      dbStatus = 'disconnected';
+    }
+
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      database: dbStatus,
     };
   }
 
