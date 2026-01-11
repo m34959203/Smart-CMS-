@@ -21,10 +21,14 @@ export class PrismaService
     // Get DATABASE_URL and add connection pool settings if not present
     let dbUrl = process.env.DATABASE_URL || '';
 
-    // Add connection pool settings to prevent pool exhaustion
+    // Add connection pool settings optimized for serverless/containerized environments
+    // - connection_limit: Lower limit for Railway/serverless (prevents pool exhaustion)
+    // - pool_timeout: Time to wait for available connection from pool
+    // - connect_timeout: Longer timeout for cold starts
     if (dbUrl && !dbUrl.includes('connection_limit')) {
       const separator = dbUrl.includes('?') ? '&' : '?';
-      dbUrl = `${dbUrl}${separator}connection_limit=20&pool_timeout=30&connect_timeout=30`;
+      // Use lower connection limit (5) for serverless, longer connect_timeout (60s) for cold starts
+      dbUrl = `${dbUrl}${separator}connection_limit=5&pool_timeout=30&connect_timeout=60`;
     }
 
     super({
