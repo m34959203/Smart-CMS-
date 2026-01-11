@@ -43,13 +43,23 @@ export class LocalStorageService {
   private baseUrl: string;
 
   constructor(private configService: ConfigService) {
-    this.uploadDir = this.configService.get<string>('UPLOAD_DIR', '/var/www/html/uploads');
+    // Use relative ./uploads by default - works in containerized environments
+    const configuredDir = this.configService.get<string>('UPLOAD_DIR', './uploads');
+    // Resolve to absolute path relative to current working directory
+    this.uploadDir = path.isAbsolute(configuredDir)
+      ? configuredDir
+      : path.join(process.cwd(), configuredDir);
     this.baseUrl = this.configService.get<string>('APP_URL', 'http://localhost:4000');
 
-    // Ensure upload directory exists (async, fire-and-forget on startup)
-    this.ensureUploadDir().then(() => {
-      this.logger.log(`Local storage initialized: ${this.uploadDir}`);
-    });
+    // Ensure upload directory exists (async with proper error handling)
+    this.ensureUploadDir()
+      .then(() => {
+        this.logger.log(`Local storage initialized: ${this.uploadDir}`);
+      })
+      .catch((error) => {
+        this.logger.error(`Failed to initialize upload directory: ${this.uploadDir}`, error.message);
+        this.logger.warn('File uploads may not work. Please check UPLOAD_DIR configuration and permissions.');
+      });
   }
 
   private async ensureUploadDir(subdir?: string): Promise<void> {
@@ -57,8 +67,15 @@ export class LocalStorageService {
     try {
       await fs.access(targetDir);
     } catch {
-      await fs.mkdir(targetDir, { recursive: true });
-      this.logger.log(`Created upload directory: ${targetDir}`);
+      try {
+        await fs.mkdir(targetDir, { recursive: true });
+        this.logger.log(`Created upload directory: ${targetDir}`);
+      } catch (mkdirError: any) {
+        if (mkdirError.code === 'EACCES') {
+          throw new Error(`Permission denied creating directory: ${targetDir}. Set UPLOAD_DIR to a writable path.`);
+        }
+        throw mkdirError;
+      }
     }
   }
 
