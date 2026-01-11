@@ -79,12 +79,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/sta
 
 USER nextjs
 
-# Railway/Render will set PORT automatically, default to 3000 if not set
-ARG PORT=3000
-ENV PORT=$PORT
+# HOSTNAME must be set for Next.js to bind to all interfaces
 ENV HOSTNAME="0.0.0.0"
+# PORT will be set by Railway/Render at runtime (default 3000)
+# Next.js standalone server reads process.env.PORT automatically
 
-EXPOSE $PORT
+EXPOSE 3000
 
-# Use JSON form for CMD - Next.js standalone reads PORT from environment
+# Start Next.js - it reads PORT from environment at runtime
 CMD ["node", "apps/web/server.js"]

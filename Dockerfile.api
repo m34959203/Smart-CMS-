@@ -25,7 +25,7 @@ COPY apps/web/package.json ./apps/web/
 # Copy Prisma schema (needed for postinstall prisma generate)
 COPY apps/api/prisma ./apps/api/prisma
 
-# Install dependencies with shamefully-hoist to avoid symlink issues
+# Install dependencies with shamefully-hoist to flatten symlinks
 RUN pnpm install --frozen-lockfile --shamefully-hoist
 
 # ====================================
@@ -35,9 +35,8 @@ FROM base AS builder
 
 WORKDIR /app
 
-# Copy dependencies
+# Copy dependencies (flat structure from shamefully-hoist)
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 
 # Copy source code
 COPY . .
@@ -51,7 +50,10 @@ RUN cd apps/api && pnpm build
 # ====================================
 # Production Stage
 # ====================================
-FROM base AS runner
+FROM node:20-alpine AS runner
+
+# Install only runtime dependencies
+RUN apk add --no-cache libc6-compat openssl postgresql-client
 
 WORKDIR /app
 
@@ -61,24 +63,17 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
 
-# Copy package files for production install
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/api/package.json ./apps/api/
-COPY apps/web/package.json ./apps/web/
-COPY apps/api/prisma ./apps/api/prisma
-
-# Install production dependencies only with shamefully-hoist
-RUN pnpm install --frozen-lockfile --prod --shamefully-hoist
-
-# Generate Prisma client in production
-RUN cd apps/api && pnpm prisma generate
+# Copy node_modules (flat structure from shamefully-hoist - no symlinks)
+COPY --from=deps /app/node_modules ./node_modules
 
 # Copy built application
 COPY --from=builder /app/apps/api/dist ./dist
-COPY --from=builder /app/apps/api/scripts ./scripts
 
-# Copy prisma folder for migrations
+# Copy prisma files for migrations
 COPY --from=builder /app/apps/api/prisma ./prisma
+
+# Copy scripts
+COPY --from=builder /app/apps/api/scripts ./scripts
 
 # Create uploads directory
 RUN mkdir -p uploads && chown -R nestjs:nodejs uploads
@@ -92,5 +87,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
 EXPOSE ${PORT:-4000}
 
 # Start script with graceful migration handling
-# Migration errors won't prevent app startup - app will start and health check will pass
 CMD ["sh", "-c", "npx prisma migrate deploy || echo 'Migration warning - continuing anyway'; node dist/src/main"]
