@@ -1,0 +1,38 @@
+# Fly.io configuration for API service
+# Deploy with: fly deploy --config fly.api.toml
+
+app = "smart-cms-api"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile.api"
+
+[env]
+  NODE_ENV = "production"
+  # PORT is automatically set by Fly.io to 8080
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+  # Health check configuration
+  [http_service.checks]
+    [http_service.checks.health]
+      grace_period = "60s"
+      interval = "30s"
+      method = "GET"
+      path = "/api/health"
+      timeout = "10s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
