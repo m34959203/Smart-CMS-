@@ -111,8 +111,9 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 4000;
-  await app.listen(port);
-  logger.log(`Application is running on: http://localhost:${port}`);
+  // Explicitly bind to 0.0.0.0 for container/cloud deployments (Fly.io, Railway, Render)
+  await app.listen(port, '0.0.0.0');
+  logger.log(`Application is running on: http://0.0.0.0:${port}`);
   logger.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.log(`Swagger docs available at: http://localhost:${port}/api/docs`);
 
