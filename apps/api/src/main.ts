@@ -8,50 +8,84 @@ import { AppModule } from './app.module';
 
 const logger = new Logger('Bootstrap');
 
+// Function to normalize URL (add https:// if missing)
+function normalizeUrl(url: string): string {
+  let normalized = url.trim();
+  if (!normalized) return '';
+
+  // If it's a Railway internal domain, skip it (not for CORS)
+  if (normalized.includes('.railway.internal')) {
+    logger.warn(`Skipping internal domain for CORS: ${normalized}`);
+    return '';
+  }
+
+  // If URL doesn't start with http, add https://
+  if (!normalized.startsWith('http')) {
+    normalized = `https://${normalized}`;
+  }
+
+  // Remove trailing slash
+  normalized = normalized.replace(/\/$/, '');
+
+  return normalized;
+}
+
 // Function to get allowed CORS origins from environment
 function getAllowedOrigins(): string[] {
-  const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '';
+  const origins: string[] = [];
 
-  // Support multiple origins separated by commas
-  const origins = corsOrigin.split(',').map(url => {
-    let trimmedUrl = url.trim();
+  // 1. Primary: CORS_ORIGIN (supports comma-separated values)
+  const corsOrigin = process.env.CORS_ORIGIN || '';
+  if (corsOrigin) {
+    corsOrigin.split(',').forEach(url => {
+      const normalized = normalizeUrl(url);
+      if (normalized) origins.push(normalized);
+    });
+  }
 
-    // If it's just a service name (no dots), add .onrender.com
-    if (trimmedUrl && !trimmedUrl.includes('.') && !trimmedUrl.startsWith('http') && !trimmedUrl.includes('localhost')) {
-      trimmedUrl = `${trimmedUrl}.onrender.com`;
-    }
+  // 2. Fallback: FRONTEND_URL
+  const frontendUrl = process.env.FRONTEND_URL || '';
+  if (frontendUrl) {
+    const normalized = normalizeUrl(frontendUrl);
+    if (normalized) origins.push(normalized);
+  }
 
-    // If URL doesn't start with http, add https://
-    if (trimmedUrl && !trimmedUrl.startsWith('http')) {
-      trimmedUrl = `https://${trimmedUrl}`;
-    }
+  // 3. Railway auto-detection: RAILWAY_PUBLIC_DOMAIN for the web service
+  // This is useful when deploying on Railway - set RAILWAY_PUBLIC_DOMAIN in api service
+  // to the public domain of the web service
+  const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN || '';
+  if (railwayPublicDomain) {
+    const normalized = normalizeUrl(railwayPublicDomain);
+    if (normalized) origins.push(normalized);
+  }
 
-    return trimmedUrl;
-  }).filter(url => url);
+  // 4. Additional known origins from CORS_KNOWN_ORIGINS env var
+  const knownOriginsEnv = process.env.CORS_KNOWN_ORIGINS || '';
+  if (knownOriginsEnv) {
+    knownOriginsEnv.split(',').forEach(url => {
+      const normalized = normalizeUrl(url);
+      if (normalized) origins.push(normalized);
+    });
+  }
 
-  // Default localhost origins for development
+  // 5. Default localhost origins for development
   const defaultDevOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
   ];
 
-  // Additional known origins can be set via CORS_KNOWN_ORIGINS env var
-  const knownOriginsEnv = process.env.CORS_KNOWN_ORIGINS || '';
-  const additionalKnownOrigins = knownOriginsEnv
-    .split(',')
-    .map(url => url.trim())
-    .filter(url => url);
-
-  // Combine: env origins + known origins + dev origins (if in development)
-  const allOrigins = [...origins, ...additionalKnownOrigins];
-
   // Add default dev origins if no production origins configured or in development mode
-  if (allOrigins.length === 0 || process.env.NODE_ENV !== 'production') {
-    allOrigins.push(...defaultDevOrigins);
+  if (origins.length === 0 || process.env.NODE_ENV !== 'production') {
+    origins.push(...defaultDevOrigins);
   }
 
   // Remove duplicates
-  return [...new Set(allOrigins)];
+  const uniqueOrigins = [...new Set(origins)];
+
+  // Log environment variable sources for debugging
+  logger.log(`CORS config sources: CORS_ORIGIN="${corsOrigin}", FRONTEND_URL="${frontendUrl}", RAILWAY_PUBLIC_DOMAIN="${railwayPublicDomain}"`);
+
+  return uniqueOrigins;
 }
 
 async function bootstrap() {
