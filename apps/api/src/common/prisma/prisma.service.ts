@@ -21,10 +21,25 @@ export class PrismaService
     // Get DATABASE_URL and add connection pool settings if not present
     let dbUrl = process.env.DATABASE_URL || '';
 
-    // Add connection pool settings to prevent pool exhaustion
+    // Log database connection info (mask password for security)
+    const maskedUrl = dbUrl ? dbUrl.replace(/:[^:@]+@/, ':****@') : 'NOT SET';
+    console.log(`[PrismaService] DATABASE_URL: ${maskedUrl}`);
+
+    // Extract host for debugging
+    const hostMatch = dbUrl.match(/@([^:\/]+)/);
+    if (hostMatch) {
+      console.log(`[PrismaService] Database host: ${hostMatch[1]}`);
+    }
+
+    // Add connection pool settings optimized for serverless/containerized environments
+    // - connection_limit: Lower limit for Railway/serverless (prevents pool exhaustion)
+    // - pool_timeout: Time to wait for available connection from pool
+    // - connect_timeout: Longer timeout for cold starts
     if (dbUrl && !dbUrl.includes('connection_limit')) {
       const separator = dbUrl.includes('?') ? '&' : '?';
-      dbUrl = `${dbUrl}${separator}connection_limit=20&pool_timeout=30&connect_timeout=30`;
+      // Use lower connection limit (5) for serverless, longer connect_timeout (60s) for cold starts
+      dbUrl = `${dbUrl}${separator}connection_limit=5&pool_timeout=30&connect_timeout=60`;
+      console.log(`[PrismaService] Added connection pool settings: connection_limit=5, pool_timeout=30, connect_timeout=60`);
     }
 
     super({
