@@ -82,5 +82,8 @@ USER nextjs
 EXPOSE ${PORT:-3000}
 
 ENV HOSTNAME="0.0.0.0"
+# Railway sets PORT automatically - Next.js standalone server reads it
+ENV PORT=${PORT:-3000}
 
-CMD ["node", "apps/web/server.js"]
+# Use shell form to ensure PORT env var is properly expanded at runtime
+CMD node apps/web/server.js
