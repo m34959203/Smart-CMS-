@@ -8,20 +8,20 @@ import { AppModule } from './app.module';
 
 const logger = new Logger('Bootstrap');
 
-// Функция для получения разрешенных origins
+// Function to get allowed CORS origins from environment
 function getAllowedOrigins(): string[] {
   const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '';
 
-  // Поддержка нескольких origins через запятую
+  // Support multiple origins separated by commas
   const origins = corsOrigin.split(',').map(url => {
     let trimmedUrl = url.trim();
 
-    // Если это только имя сервиса (без точек), добавляем .onrender.com
+    // If it's just a service name (no dots), add .onrender.com
     if (trimmedUrl && !trimmedUrl.includes('.') && !trimmedUrl.startsWith('http') && !trimmedUrl.includes('localhost')) {
       trimmedUrl = `${trimmedUrl}.onrender.com`;
     }
 
-    // Если URL не начинается с http, добавляем https://
+    // If URL doesn't start with http, add https://
     if (trimmedUrl && !trimmedUrl.startsWith('http')) {
       trimmedUrl = `https://${trimmedUrl}`;
     }
@@ -29,19 +29,29 @@ function getAllowedOrigins(): string[] {
     return trimmedUrl;
   }).filter(url => url);
 
-  // Добавляем известные домены для production
-  const knownOrigins = [
-    'https://aimak-web-rvep.onrender.com',
-    'https://aimaqaqshamy.kz',
-    'https://www.aimaqaqshamy.kz',
+  // Default localhost origins for development
+  const defaultDevOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
   ];
 
-  // Объединяем и убираем дубликаты
-  const allOrigins = [...new Set([...origins, ...knownOrigins])];
+  // Additional known origins can be set via CORS_KNOWN_ORIGINS env var
+  const knownOriginsEnv = process.env.CORS_KNOWN_ORIGINS || '';
+  const additionalKnownOrigins = knownOriginsEnv
+    .split(',')
+    .map(url => url.trim())
+    .filter(url => url);
 
-  return allOrigins;
+  // Combine: env origins + known origins + dev origins (if in development)
+  const allOrigins = [...origins, ...additionalKnownOrigins];
+
+  // Add default dev origins if no production origins configured or in development mode
+  if (allOrigins.length === 0 || process.env.NODE_ENV !== 'production') {
+    allOrigins.push(...defaultDevOrigins);
+  }
+
+  // Remove duplicates
+  return [...new Set(allOrigins)];
 }
 
 async function bootstrap() {
