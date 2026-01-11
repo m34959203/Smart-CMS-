@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { SupabaseModule } from './common/supabase/supabase.module';
+import { AIModule } from './common/ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ArticlesModule } from './articles/articles.module';
@@ -26,6 +27,7 @@ import { BootstrapAdminService } from './bootstrap-admin.service';
     }),
     PrismaModule,
     SupabaseModule,
+    AIModule,
     AuthModule,
     UsersModule,
     ArticlesModule,
