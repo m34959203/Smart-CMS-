@@ -8,6 +8,31 @@ import { PrismaClient } from '@prisma/client';
 import * as net from 'net';
 import * as dns from 'dns';
 
+// Helper function to build database URL with connection pool settings
+function buildDatabaseUrl(): string {
+  let dbUrl = process.env.DATABASE_URL || '';
+
+  if (dbUrl && !dbUrl.includes('connection_limit')) {
+    const separator = dbUrl.includes('?') ? '&' : '?';
+    dbUrl = `${dbUrl}${separator}connection_limit=3&pool_timeout=20&connect_timeout=30&socket_timeout=30`;
+  }
+
+  return dbUrl;
+}
+
+// Helper function to parse database host and port
+function parseDatabaseConfig(dbUrl: string): { host: string; port: number } {
+  try {
+    const url = new URL(dbUrl.replace(/^postgresql:/, 'postgres:'));
+    return {
+      host: url.hostname,
+      port: parseInt(url.port || '5432', 10),
+    };
+  } catch {
+    return { host: '', port: 5432 };
+  }
+}
+
 @Injectable()
 export class PrismaService
   extends PrismaClient
@@ -17,58 +42,14 @@ export class PrismaService
   private isConnected = false;
   private connectionRetries = 0;
   private readonly maxRetries = 10;
-  private readonly initialRetryDelay = 2000; // Start with 2 seconds
-  private readonly maxRetryDelay = 30000; // Max 30 seconds between retries
-  private dbHost: string = '';
-  private dbPort: number = 5432;
+  private readonly initialRetryDelay = 2000;
+  private readonly maxRetryDelay = 30000;
+  private readonly dbHost: string;
+  private readonly dbPort: number;
 
   constructor() {
-    // Get DATABASE_URL and add connection pool settings if not present
-    let dbUrl = process.env.DATABASE_URL || '';
-
-    // Log database connection info (mask password for security)
-    const maskedUrl = dbUrl ? dbUrl.replace(/:[^:@]+@/, ':****@') : 'NOT SET';
-    console.log(`[PrismaService] DATABASE_URL: ${maskedUrl}`);
-
-    // Extract host and port for TCP checks
-    try {
-      const url = new URL(dbUrl.replace(/^postgresql:/, 'postgres:'));
-      const host = url.hostname;
-      const port = parseInt(url.port || '5432', 10);
-      console.log(`[PrismaService] Database host: ${host}`);
-      console.log(`[PrismaService] Database port: ${port}`);
-
-      // Store for later TCP checks
-      // @ts-ignore - assigning before super
-      this.dbHost = host;
-      // @ts-ignore - assigning before super
-      this.dbPort = port;
-
-      // Check if Railway internal network
-      if (host.endsWith('.railway.internal')) {
-        console.log(`[PrismaService] Using Railway internal networking`);
-      }
-    } catch (e) {
-      console.log(`[PrismaService] Could not parse DATABASE_URL`);
-    }
-
-    // Add connection pool settings optimized for Railway/serverless environments
-    // - connection_limit: Lower limit to prevent pool exhaustion
-    // - pool_timeout: Time to wait for available connection from pool
-    // - connect_timeout: Longer timeout for cold starts and network delays
-    // - socket_timeout: Timeout for socket operations
-    if (dbUrl && !dbUrl.includes('connection_limit')) {
-      const separator = dbUrl.includes('?') ? '&' : '?';
-      // Railway-optimized settings:
-      // - connection_limit=3: Very low to handle Railway's connection limits
-      // - pool_timeout=20: Shorter pool timeout to fail fast
-      // - connect_timeout=30: Allow time for internal DNS resolution
-      // - socket_timeout=30: Socket operation timeout
-      dbUrl = `${dbUrl}${separator}connection_limit=3&pool_timeout=20&connect_timeout=30&socket_timeout=30`;
-      console.log(
-        `[PrismaService] Added connection pool settings: connection_limit=3, pool_timeout=20, connect_timeout=30`,
-      );
-    }
+    const dbUrl = buildDatabaseUrl();
+    const dbConfig = parseDatabaseConfig(process.env.DATABASE_URL || '');
 
     super({
       log: [
@@ -81,21 +62,37 @@ export class PrismaService
         },
       },
     });
+
+    this.dbHost = dbConfig.host;
+    this.dbPort = dbConfig.port;
+
+    // Log database connection info
+    const maskedUrl = dbUrl ? dbUrl.replace(/:[^:@]+@/, ':****@') : 'NOT SET';
+    console.log(`[PrismaService] DATABASE_URL: ${maskedUrl}`);
+    console.log(`[PrismaService] Database host: ${this.dbHost}`);
+    console.log(`[PrismaService] Database port: ${this.dbPort}`);
+
+    if (this.dbHost.endsWith('.railway.internal')) {
+      console.log(`[PrismaService] Using Railway internal networking`);
+    }
+
+    if (dbUrl.includes('connection_limit')) {
+      console.log(
+        `[PrismaService] Connection pool settings: connection_limit=3, pool_timeout=20, connect_timeout=30`,
+      );
+    }
   }
 
   async onModuleInit() {
     await this.connectWithRetry();
   }
 
-  /**
-   * Check if the database host is reachable via TCP
-   */
   private async checkTcpConnection(): Promise<{
     success: boolean;
     error?: string;
   }> {
     if (!this.dbHost) {
-      return { success: true }; // Skip check if no host parsed
+      return { success: true };
     }
 
     return new Promise((resolve) => {
@@ -138,9 +135,6 @@ export class PrismaService
     });
   }
 
-  /**
-   * Check DNS resolution for the database host
-   */
   private async checkDnsResolution(): Promise<{
     success: boolean;
     address?: string;
@@ -164,11 +158,7 @@ export class PrismaService
     });
   }
 
-  /**
-   * Calculate retry delay with exponential backoff
-   */
   private getRetryDelay(attempt: number): number {
-    // Exponential backoff: 2s, 4s, 8s, 16s, 30s, 30s, ...
     const delay = Math.min(
       this.initialRetryDelay * Math.pow(2, attempt - 1),
       this.maxRetryDelay,
@@ -186,7 +176,6 @@ export class PrismaService
           `Attempting database connection (attempt ${this.connectionRetries}/${this.maxRetries})...`,
         );
 
-        // Step 1: Check DNS resolution
         const dnsResult = await this.checkDnsResolution();
         if (!dnsResult.success) {
           this.logger.warn(`DNS resolution failed: ${dnsResult.error}`);
@@ -203,7 +192,6 @@ export class PrismaService
           );
         }
 
-        // Step 2: Check TCP connectivity
         const tcpResult = await this.checkTcpConnection();
         if (!tcpResult.success) {
           this.logger.warn(`TCP connection check failed: ${tcpResult.error}`);
@@ -220,7 +208,6 @@ export class PrismaService
           );
         }
 
-        // Step 3: Try Prisma connection
         await this.$connect();
         this.isConnected = true;
         this.logger.log('Successfully connected to database via Prisma');
@@ -239,8 +226,6 @@ export class PrismaService
             `Failed to connect to database after ${this.maxRetries} attempts.`,
           );
           this.logTroubleshootingInfo();
-          // DON'T throw - let the app start anyway for health checks
-          // Database operations will fail individually
           return;
         }
 
@@ -273,9 +258,6 @@ export class PrismaService
       this.logger.log(
         '5. Consider using the public TCP proxy URL instead of internal URL',
       );
-      this.logger.log(
-        '   (Railway Dashboard > Postgres Service > Connect > Public Network)',
-      );
     } else {
       this.logger.log('General Database Connection Issues:');
       this.logger.log('1. Verify DATABASE_URL is correctly formatted');
@@ -285,9 +267,10 @@ export class PrismaService
     }
 
     this.logger.log('');
-    this.logger.log('App will continue but database features will be unavailable.');
+    this.logger.log(
+      'App will continue but database features will be unavailable.',
+    );
     this.logger.log('===========================================');
-    this.logger.log('');
   }
 
   private sleep(ms: number): Promise<void> {

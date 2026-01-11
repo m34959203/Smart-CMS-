@@ -225,8 +225,8 @@ Rules:
         .filter((tag) => tag.nameKz && tag.nameRu);
 
       // Match with existing tags
-      const matchedTags = [];
-      const createdTags = [];
+      const matchedTags: Array<{ id: string; nameKz: string; nameRu: string; slug: string }> = [];
+      const createdTags: Array<{ id?: string; nameKz: string; nameRu: string; slug?: string }> = [];
 
       for (const suggested of suggestedTags) {
         const existing = existingTags.find(
@@ -265,7 +265,7 @@ Rules:
         created: createdTags,
         tagIds: [...matchedTags, ...createdTags]
           .map((tag) => tag.id)
-          .filter(Boolean),
+          .filter((id): id is string => Boolean(id)),
       };
     } catch (error) {
       this.logger.error('Tag generation error:', error);
@@ -327,7 +327,7 @@ Rules:
           });
         }
 
-        result.created?.forEach((tag) => {
+        result.created?.forEach((tag: { id?: string }) => {
           if (tag.id) newTagsCreated.add(tag.id);
         });
 
