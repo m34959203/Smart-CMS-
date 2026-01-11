@@ -86,5 +86,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
 
 EXPOSE ${PORT:-4000}
 
-# Start script with graceful migration handling
-CMD ["sh", "-c", "npx prisma migrate deploy || echo 'Migration warning - continuing anyway'; node dist/src/main"]
+# Start script with wait-for-db and graceful migration handling
+CMD ["sh", "-c", "node scripts/wait-for-db.js && npx prisma migrate deploy || echo 'Migration warning - continuing anyway'; node dist/src/main"]
