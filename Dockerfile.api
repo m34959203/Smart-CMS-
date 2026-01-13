@@ -90,5 +90,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
 EXPOSE ${PORT:-4000}
 
 # Start with entrypoint script
-ENTRYPOINT ["/bin/sh"]
-CMD ["scripts/start.sh"]
+CMD ["/bin/sh", "scripts/start.sh"]
